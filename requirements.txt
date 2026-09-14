@@ -1,0 +1,7 @@
+# Cross-platform (needed for --simulate mode, tests, and the CLI report layer)
+pytest>=8.0
+
+# Linux-only, real-hardware mode (installed via system package manager, not pip,
+# on most distros — see README.md "Running on real hardware"):
+#   sudo apt install bpfcc-tools python3-bpfcc
+# bcc

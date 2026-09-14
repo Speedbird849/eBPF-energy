@@ -1,0 +1,29 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\monte\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\monte\OneDrive\Desktop\compiler_Design_project
+plugins: anyio-4.15.1
+collecting ... collected 20 items
+
+tests/test_attribution.py::test_proportional_split_two_pids PASSED       [  5%]
+tests/test_attribution.py::test_single_pid_gets_all_energy PASSED        [ 10%]
+tests/test_attribution.py::test_empty_window_returns_empty_result PASSED [ 15%]
+tests/test_attribution.py::test_all_zero_cpu_time_returns_empty_result PASSED [ 20%]
+tests/test_attribution.py::test_zero_total_joules_yields_zero_joules_but_valid_shares PASSED [ 25%]
+tests/test_attribution.py::test_invalid_negative_joules_raises PASSED    [ 30%]
+tests/test_attribution.py::test_invalid_negative_cpu_ns_raises PASSED    [ 35%]
+tests/test_attribution.py::test_merge_windows_sums_across_history PASSED [ 40%]
+tests/test_attribution.py::test_merge_windows_handles_pid_absent_in_some_windows PASSED [ 45%]
+tests/test_attribution.py::test_many_pids_realistic_distribution PASSED  [ 50%]
+tests/test_probe_window.py::test_first_snapshot_returns_full_cumulative_as_delta PASSED [ 55%]
+tests/test_probe_window.py::test_second_snapshot_returns_only_the_increase PASSED [ 60%]
+tests/test_probe_window.py::test_pid_with_no_change_is_dropped_from_result PASSED [ 65%]
+tests/test_probe_window.py::test_pid_that_exits_stops_appearing_and_does_not_error PASSED [ 70%]
+tests/test_probe_window.py::test_new_pid_appearing_mid_run_gets_full_value_as_first_delta PASSED [ 75%]
+tests/test_rapl_reader.py::test_first_poll_returns_none_no_baseline PASSED [ 80%]
+tests/test_rapl_reader.py::test_normal_increment_computes_joules PASSED  [ 85%]
+tests/test_rapl_reader.py::test_wraparound_is_handled PASSED             [ 90%]
+tests/test_rapl_reader.py::test_missing_max_energy_range_falls_back_gracefully PASSED [ 95%]
+tests/test_rapl_reader.py::test_repeated_polls_accumulate_independently PASSED [100%]
+
+============================= 20 passed in 0.14s ==============================
