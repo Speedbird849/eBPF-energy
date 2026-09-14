@@ -16,9 +16,12 @@ A zero-instrumentation energy profiler that attributes real-time CPU energy
 consumption (in Joules) to individual processes/microservices on a single
 Linux host, by correlating nanosecond-precision eBPF scheduling data
 (`sched_switch`) with node-level Intel RAPL power metrics. See
-[`docs/architecture.md`](docs/architecture.md) for the full data-flow design
-and [`docs/Review2_Progress_Document.md`](docs/Review2_Progress_Document.md)
-for the Review 2 submission writeup.
+[`docs/architecture.md`](docs/architecture.md) for the full data-flow design,
+[`docs/Review2_Progress_Document.docx`](docs/Review2_Progress_Document.docx)
+for the Review 2 submission writeup, and
+[`PROJECT_EXPLAINED.md`](PROJECT_EXPLAINED.md) (also as
+[`docs/PROJECT_EXPLAINED.pdf`](docs/PROJECT_EXPLAINED.pdf)) for a
+plain-language walkthrough of what was required, what was built, and how.
 
 ## Repository layout
 
