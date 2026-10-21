@@ -31,67 +31,63 @@ src/
   module2_rapl_reader/      RAPL sysfs reader, wraparound-aware Joule delta calc
   module3_attribution_engine/  Pure proportional-attribution logic (no I/O, fully unit-tested)
   cli/                      energy_profiler.py — integrates all three modules end-to-end
-tests/                      pytest unit tests (20 tests, all passing — see below)
+tests/                      pytest unit + integration tests (30 tests)
 docs/                       architecture notes + Review 2 progress document
-scripts/                    stress-test helper for real-hardware validation
+scripts/                    preflight, real demo, stress test, overhead benchmark, final check
+evidence/                   outputs of the above (generated)
 ```
 
-## Running the prototype
-
-### Simulated mode (works on any OS — Windows, macOS, Linux; no root, no RAPL, no eBPF)
-
-This mode exercises the *entire* pipeline (windowing, wraparound handling,
-proportional attribution, CLI reporting) with synthetic scheduler/power data
-so the integration can be demonstrated and tested without special hardware.
+## Quick start (copy-paste)
 
 ```bash
-python -m src.cli.energy_profiler --duration 10 --interval 1 --simulate --seed 42
+# 0) one-time install (Ubuntu/Debian) -- real mode only; simulation needs only python3 + pytest
+sudo apt update
+sudo apt install -y python3-pytest bpfcc-tools python3-bpfcc linux-headers-$(uname -r) stress-ng
+
+# 1) tests + simulation (any OS, no root)            -> evidence/final_check_output.txt
+bash scripts/final_check.sh
+
+# 2) can this machine run the real thing?            -> evidence/preflight.txt
+sudo bash scripts/preflight.sh
+
+# 3) real mode (eBPF + RAPL), 30 s                    -> evidence/real_run_*.{txt,json}
+sudo bash scripts/run_real_demo.sh 30
+#    or directly:  sudo python3 -m src.cli.energy_profiler --duration 30 --interval 1
+
+# 4) stress-ng validation (idle baseline + load)      -> evidence/stress_*
+sudo bash scripts/run_stress_test.sh 30 2
+
+# 5) probe overhead benchmark                         -> evidence/overhead_report.json
+sudo python3 scripts/measure_overhead.py
 ```
+Use the **system** `python3` for real mode (BCC is installed by apt, not pip, so it is not visible inside a venv).
+On Windows/macOS only the simulation is possible: `python -m src.cli.energy_profiler --duration 10 --interval 1 --simulate --seed 42`.
 
-Prints a live per-window per-PID table plus run totals, and writes
-`energy_report.json`.
+CLI options: `--group-by tgid|tid` (default tgid = threads merged into their process), `--handoff-file F`
+(probe data goes through an atomically written JSON file), `--quiet`, `--rapl-dir`, `--out`.
+Real mode needs **root** (eBPF, and `energy_uj` is root-only on Linux >= 5.10) and a CPU/VM that exposes
+`/sys/class/powercap/intel-rapl:0`.
 
-### Real mode (Linux >= 5.8, BCC installed, root, Intel/AMD RAPL-capable CPU)
+## What was added for the final review
+| Review-2 gap | What is in the repo now |
+|---|---|
+| Real-mode run | `scripts/preflight.sh`, `scripts/run_real_demo.sh`; one synchronised sampling loop (probe + RAPL read at the same instant), running slices counted, idle task excluded, dead PIDs pruned, clear errors for missing RAPL/BCC/root |
+| Stress test | `scripts/run_stress_test.sh` (+ idle baseline) and `scripts/analyze_stress_report.py` (PASS/FAIL checks) |
+| JSON hand-off race | `src/common/atomic_json.py` (tmp file + `os.replace`, retrying reader); 6 tests incl. a cross-process hammer test |
+| Overhead evidence | `scripts/measure_overhead.py` (baseline vs profiler, interleaved rounds, SE, honest verdict) |
+| Repeatable validation | `docs/VALIDATION.md` |
+| Tests | **30 tests** (was 20): +5 atomic-JSON, +4 integration (PID exit, idle window, RAPL gap, handoff, missing RAPL) |
 
-```bash
-sudo python3 -m src.cli.energy_profiler --duration 30 --interval 1
-```
-
-Requires:
-```bash
-sudo apt install bpfcc-tools python3-bpfcc   # Debian/Ubuntu
-```
-Runs the actual `sched_probe.bpf.c` eBPF program (via `bcc`) against the live
-kernel scheduler and reads `/sys/class/powercap/intel-rapl:0/energy_uj`.
-
-### Stress-test validation (real hardware)
-
-```bash
-bash scripts/run_stress_test.sh
-```
-Drives `stress-ng` while the profiler runs, so attributed Joules for the
-stress workload's PID can be sanity-checked against the RAPL delta and
-external power-meter baseline (Review 1 testing strategy).
+> Honest status: tests and the simulation were executed and pass. The real-hardware, stress and overhead runs
+> must be executed by you on your Ubuntu machine (this repo contains the tools and procedure, not fabricated numbers).
 
 ## Running the tests
 
 ```bash
-pip install pytest
-python -m pytest tests/ -v
+python3 -m pytest tests/ -v      # 30 tests
 ```
-
-Current status: **20/20 tests passing.** Coverage:
-- `test_attribution.py` (10 tests) — proportional split correctness, zero/negative
-  edge cases, multi-window aggregation.
-- `test_rapl_reader.py` (5 tests) — Joule delta calc, RAPL counter wraparound,
-  missing-metadata fallback, against a fake sysfs fixture.
-- `test_probe_window.py` (5 tests) — cumulative-to-delta windowing, PID
-  appear/exit handling.
-
-Module 1's C eBPF program (`sched_probe.bpf.c`) cannot be unit-tested off a
-Linux kernel; it is validated via live demonstration on the target VM
-(see Review 1 Stage 2 plan and the Review 2 progress document's testing
-section for current status).
+`test_integration.py` exercises the real-mode code path with a fake sysfs RAPL directory and a scripted probe.
+The C eBPF program itself can only be validated on a Linux kernel (manual check in `docs/VALIDATION.md`).
 
 ## Design deviations from Review 1
 

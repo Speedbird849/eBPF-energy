@@ -1,29 +1,27 @@
 #!/usr/bin/env bash
-# run_stress_test.sh — Real-hardware validation helper (Review 1 Testing Strategy)
-#
-# Runs stress-ng to generate a known, controllable CPU load while the
-# profiler is running, so the attributed Joules for the stress-ng PID can be
-# checked against the RAPL delta for that window and (where available) an
-# external power-meter baseline.
-#
-# Requires: Linux, stress-ng, root (for the profiler's real eBPF/RAPL mode).
+# run_stress_test.sh — Task 2: stress-ng validation with idle baseline + automatic checks.
+# Run:  sudo bash scripts/run_stress_test.sh [duration_s=30] [cores=2]
 set -euo pipefail
-
-DURATION=${1:-20}
+cd "$(dirname "$0")/.."
+DURATION=${1:-30}
 CORES=${2:-2}
+PY=/usr/bin/python3
+[ "$(id -u)" -eq 0 ] || { echo "Run with sudo: sudo bash scripts/run_stress_test.sh"; exit 1; }
+command -v stress-ng >/dev/null 2>&1 || { echo "Install: sudo apt install stress-ng" >&2; exit 1; }
+mkdir -p evidence
 
-command -v stress-ng >/dev/null 2>&1 || {
-  echo "stress-ng not found. Install with: sudo apt install stress-ng" >&2
-  exit 1
-}
+echo "[1/3] Idle baseline (10 s, machine should be quiet)..."
+$PY -m src.cli.energy_profiler --duration 10 --interval 1 --quiet --out evidence/idle_report.json
 
-echo "Starting stress-ng (${CORES} cores, ${DURATION}s) in background..."
-stress-ng --cpu "${CORES}" --timeout "${DURATION}s" &
+echo "[2/3] Loaded run: stress-ng --cpu ${CORES} for ${DURATION}s + profiler..."
+stress-ng --cpu "${CORES}" --timeout "$((DURATION + 3))s" >/dev/null 2>&1 &
 STRESS_PID=$!
-
-echo "Starting profiler for ${DURATION}s (real mode)..."
-sudo python3 -m src.cli.energy_profiler --duration "${DURATION}" --interval 1 --out stress_test_report.json
-
+sleep 1
+$PY -m src.cli.energy_profiler --duration "${DURATION}" --interval 1 \
+    --out evidence/stress_report.json | tee evidence/stress_terminal.txt
 wait "${STRESS_PID}" || true
-echo "Done. Compare stress-ng's PID's attributed Joules in stress_test_report.json"
-echo "against expected: (stress-ng RAPL share) ~ proportional to its wall-clock CPU busy time."
+
+echo "[3/3] Analysis"
+$PY scripts/analyze_stress_report.py evidence/stress_report.json \
+    --idle evidence/idle_report.json --cores "${CORES}" --process-prefix stress-ng \
+    | tee evidence/stress_analysis.txt

@@ -1,29 +1,77 @@
-============================= test session starts =============================
-platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\monte\AppData\Local\Programs\Python\Python312\python.exe
+== automated tests ==
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.7.0 -- /usr/bin/python3
 cachedir: .pytest_cache
-rootdir: C:\Users\monte\OneDrive\Desktop\compiler_Design_project
-plugins: anyio-4.15.1
-collecting ... collected 20 items
+rootdir: /home/claude/work/compiler_Design_project
+collecting ... collected 30 items
 
-tests/test_attribution.py::test_proportional_split_two_pids PASSED       [  5%]
-tests/test_attribution.py::test_single_pid_gets_all_energy PASSED        [ 10%]
-tests/test_attribution.py::test_empty_window_returns_empty_result PASSED [ 15%]
-tests/test_attribution.py::test_all_zero_cpu_time_returns_empty_result PASSED [ 20%]
-tests/test_attribution.py::test_zero_total_joules_yields_zero_joules_but_valid_shares PASSED [ 25%]
-tests/test_attribution.py::test_invalid_negative_joules_raises PASSED    [ 30%]
-tests/test_attribution.py::test_invalid_negative_cpu_ns_raises PASSED    [ 35%]
-tests/test_attribution.py::test_merge_windows_sums_across_history PASSED [ 40%]
-tests/test_attribution.py::test_merge_windows_handles_pid_absent_in_some_windows PASSED [ 45%]
-tests/test_attribution.py::test_many_pids_realistic_distribution PASSED  [ 50%]
-tests/test_probe_window.py::test_first_snapshot_returns_full_cumulative_as_delta PASSED [ 55%]
-tests/test_probe_window.py::test_second_snapshot_returns_only_the_increase PASSED [ 60%]
-tests/test_probe_window.py::test_pid_with_no_change_is_dropped_from_result PASSED [ 65%]
-tests/test_probe_window.py::test_pid_that_exits_stops_appearing_and_does_not_error PASSED [ 70%]
-tests/test_probe_window.py::test_new_pid_appearing_mid_run_gets_full_value_as_first_delta PASSED [ 75%]
-tests/test_rapl_reader.py::test_first_poll_returns_none_no_baseline PASSED [ 80%]
-tests/test_rapl_reader.py::test_normal_increment_computes_joules PASSED  [ 85%]
-tests/test_rapl_reader.py::test_wraparound_is_handled PASSED             [ 90%]
-tests/test_rapl_reader.py::test_missing_max_energy_range_falls_back_gracefully PASSED [ 95%]
+tests/test_atomic_json.py::test_write_then_read_roundtrip PASSED         [  3%]
+tests/test_atomic_json.py::test_no_temp_files_left_behind PASSED         [  6%]
+tests/test_atomic_json.py::test_missing_file_returns_none_instead_of_raising PASSED [ 10%]
+tests/test_atomic_json.py::test_corrupt_file_returns_none_instead_of_raising PASSED [ 13%]
+tests/test_atomic_json.py::test_retry_recovers_when_writer_finishes_mid_read PASSED [ 16%]
+tests/test_atomic_json.py::test_concurrent_reader_never_sees_partial_json PASSED [ 20%]
+tests/test_attribution.py::test_proportional_split_two_pids PASSED       [ 23%]
+tests/test_attribution.py::test_single_pid_gets_all_energy PASSED        [ 26%]
+tests/test_attribution.py::test_empty_window_returns_empty_result PASSED [ 30%]
+tests/test_attribution.py::test_all_zero_cpu_time_returns_empty_result PASSED [ 33%]
+tests/test_attribution.py::test_zero_total_joules_yields_zero_joules_but_valid_shares PASSED [ 36%]
+tests/test_attribution.py::test_invalid_negative_joules_raises PASSED    [ 40%]
+tests/test_attribution.py::test_invalid_negative_cpu_ns_raises PASSED    [ 43%]
+tests/test_attribution.py::test_merge_windows_sums_across_history PASSED [ 46%]
+tests/test_attribution.py::test_merge_windows_handles_pid_absent_in_some_windows PASSED [ 50%]
+tests/test_attribution.py::test_many_pids_realistic_distribution PASSED  [ 53%]
+tests/test_integration.py::test_pid_disappears_idle_window_and_rapl_gap PASSED [ 56%]
+tests/test_integration.py::test_handoff_file_path_end_to_end PASSED      [ 60%]
+tests/test_integration.py::test_rapl_missing_gives_clear_error PASSED    [ 63%]
+tests/test_integration.py::test_probe_counter_going_backwards_does_not_double_count PASSED [ 66%]
+tests/test_probe_window.py::test_first_snapshot_returns_full_cumulative_as_delta PASSED [ 70%]
+tests/test_probe_window.py::test_second_snapshot_returns_only_the_increase PASSED [ 73%]
+tests/test_probe_window.py::test_pid_with_no_change_is_dropped_from_result PASSED [ 76%]
+tests/test_probe_window.py::test_pid_that_exits_stops_appearing_and_does_not_error PASSED [ 80%]
+tests/test_probe_window.py::test_new_pid_appearing_mid_run_gets_full_value_as_first_delta PASSED [ 83%]
+tests/test_rapl_reader.py::test_first_poll_returns_none_no_baseline PASSED [ 86%]
+tests/test_rapl_reader.py::test_normal_increment_computes_joules PASSED  [ 90%]
+tests/test_rapl_reader.py::test_wraparound_is_handled PASSED             [ 93%]
+tests/test_rapl_reader.py::test_missing_max_energy_range_falls_back_gracefully PASSED [ 96%]
 tests/test_rapl_reader.py::test_repeated_polls_accumulate_independently PASSED [100%]
 
-============================= 20 passed in 0.14s ==============================
+============================== 30 passed in 1.82s ==============================
+
+== simulated end-to-end run (3 windows) ==
+
+--- Window 1: 44.3516 J over 1.00s (44.4 W), CPU utilisation 100.0% ---
+     PID  NAME               CPU SHARE      JOULES
+    1001  pid-1001               50.6%     22.4390
+    1003  pid-1003               23.9%     10.5789
+    1004  pid-1004               20.0%      8.8923
+    1002  pid-1002                5.5%      2.4414
+
+--- Window 2: 44.2219 J over 1.00s (44.2 W), CPU utilisation 100.0% ---
+     PID  NAME               CPU SHARE      JOULES
+    1003  pid-1003               36.3%     16.0727
+    1001  pid-1001               30.3%     13.4164
+    1002  pid-1002               28.0%     12.3968
+    1004  pid-1004                5.3%      2.3360
+
+--- Window 3: 44.4991 J over 1.00s (44.5 W), CPU utilisation 100.0% ---
+     PID  NAME               CPU SHARE      JOULES
+    1004  pid-1004               40.4%     17.9636
+    1001  pid-1001               34.3%     15.2649
+    1003  pid-1003               19.5%      8.6894
+    1002  pid-1002                5.8%      2.5811
+
+=== Run Totals (per PID) ===
+     PID  NAME              TOTAL JOULES
+    1001  pid-1001               51.1204
+    1003  pid-1003               35.3409
+    1004  pid-1004               29.1920
+    1002  pid-1002               17.4193
+
+=== Consistency check ===
+  windows used            : 3  (RAPL-skipped: 0, handoff-skipped: 0)
+  raw RAPL energy (active): 133.0726 J
+  sum attributed energy   : 133.0726 J   (difference 0.000000%)
+  raw RAPL energy (all)   : 133.0726 J  (idle windows are attributed to nobody)
+
+Report written to evidence/simulation_report.json

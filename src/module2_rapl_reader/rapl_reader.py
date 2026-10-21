@@ -15,9 +15,9 @@ Two modes, mirroring Module 1:
                for machines without RAPL/powercap (e.g. this Windows dev
                environment, or non-Intel/AMD-RAPL CPUs, or containers/VMs
                without passthrough access to the counter).
-  (default)    Reads the real sysfs path. Requires Linux with RAPL exposed
-               (readable without root for the energy_uj file on most distros;
-               raise via `sudo chmod` or run as root if permission denied).
+  (default)    Reads the real sysfs path. Requires Linux with RAPL exposed.
+               NOTE: since Linux 5.10 (Platypus mitigation) energy_uj is
+               readable by root only, so run the profiler with sudo.
 """
 from __future__ import annotations
 
@@ -29,6 +29,30 @@ import time
 from dataclasses import dataclass
 
 RAPL_BASE = "/sys/class/powercap/intel-rapl:0"
+
+
+class RaplUnavailable(RuntimeError):
+    """Raised when the RAPL counter cannot be used at all (missing / no
+    permission). Carries a human-readable hint for the CLI to print."""
+
+
+def check_rapl(rapl_dir: str = RAPL_BASE) -> tuple[bool, str]:
+    """Return (ok, message) describing whether energy_uj is readable."""
+    path = f"{rapl_dir}/energy_uj"
+    try:
+        with open(path) as f:
+            int(f.read().strip())
+        return True, f"RAPL OK: {path}"
+    except FileNotFoundError:
+        return False, (
+            f"{path} not found. The CPU/VM does not expose RAPL "
+            "(typical for VMs/WSL/containers/ARM). Try: sudo modprobe intel_rapl_common; "
+            "ls /sys/class/powercap/"
+        )
+    except PermissionError:
+        return False, f"Permission denied reading {path}. Run with sudo (energy_uj is root-only on Linux >= 5.10)."
+    except (OSError, ValueError) as exc:
+        return False, f"Could not read {path}: {exc}"
 
 
 @dataclass
@@ -46,6 +70,8 @@ class RaplReader:
         self.rapl_dir = rapl_dir
         self._max_range_uj = self._read_max_range()
         self._last: RaplReading | None = None
+        self.read_errors = 0          # transient failures seen so far
+        self.last_interval_s: float | None = None  # wall time covered by last poll()
 
     def _read_max_range(self) -> int:
         try:
@@ -64,8 +90,15 @@ class RaplReader:
     def poll(self) -> float | None:
         """Read the counter now and return Joules consumed since the
         previous poll(), or None on the first call (no baseline yet)."""
-        now = time.time()
-        energy = self._read_energy_uj()
+        now = time.monotonic()
+        try:
+            energy = self._read_energy_uj()
+        except OSError:
+            # Counter momentarily unreadable. Keep the old baseline so the
+            # NEXT successful poll covers the whole gap (no energy is lost),
+            # and tell the caller "no reading this window" with None.
+            self.read_errors += 1
+            return None
         reading = RaplReading(energy_uj=energy, timestamp=now)
 
         joules = None
@@ -75,20 +108,38 @@ class RaplReader:
                 # Counter wrapped around during this window.
                 delta_uj += self._max_range_uj
             joules = delta_uj / 1_000_000.0
+            self.last_interval_s = now - self._last.timestamp
 
         self._last = reading
         return joules
 
 
-def run_real(interval: float, duration: float):
-    reader = RaplReader()
+def run_real(interval: float, duration: float, rapl_dir: str = RAPL_BASE):
+    ok, msg = check_rapl(rapl_dir)
+    if not ok:
+        raise RaplUnavailable(msg)
+    reader = RaplReader(rapl_dir)
     reader.poll()  # establish baseline
-    elapsed = 0.0
-    while elapsed < duration:
+    start = time.monotonic()
+    while time.monotonic() - start < duration:
         time.sleep(interval)
-        elapsed += interval
-        joules = reader.poll()
-        yield joules
+        yield reader.poll()
+
+
+class SimulatedRapl:
+    """Object form of the simulator so the CLI can sample it in lock-step
+    with the (simulated) probe."""
+
+    def __init__(self, base_watts: float = 45.0, seed: int | None = None):
+        self._rng = random.Random(seed)
+        self.base_watts = base_watts
+        self.read_errors = 0
+        self.last_interval_s: float | None = None
+
+    def poll(self, interval: float = 1.0) -> float:
+        watts = max(5.0, self._rng.gauss(self.base_watts, self.base_watts * 0.1))
+        self.last_interval_s = interval
+        return watts * interval
 
 
 def run_simulated(interval: float, duration: float, base_watts: float = 45.0, seed: int | None = None):

@@ -27,28 +27,39 @@
 #include <linux/sched.h>
 
 /* pid -> ns timestamp at which this pid was scheduled onto the CPU */
-BPF_HASH(start_ns, u32, u64);
+BPF_HASH(start_ns, u32, u64, 65536);
 
 /* pid -> cumulative on-CPU nanoseconds observed by this probe */
-BPF_HASH(cpu_ns, u32, u64);
+BPF_HASH(cpu_ns, u32, u64, 65536);
 
 TRACEPOINT_PROBE(sched, sched_switch) {
     u64 ts = bpf_ktime_get_ns();
     u32 prev_pid = args->prev_pid;
     u32 next_pid = args->next_pid;
 
-    /* Charge the outgoing task for the slice that just ended. */
-    u64 *tsp = start_ns.lookup(&prev_pid);
-    if (tsp != 0) {
-        u64 delta = ts - *tsp;
-        u64 zero = 0;
-        u64 *val = cpu_ns.lookup_or_init(&prev_pid, &zero);
-        (*val) += delta;
-        start_ns.delete(&prev_pid);
+    /* Charge the outgoing task for the slice that just ended.
+     * PID 0 is the per-CPU idle ("swapper") task: every CPU has its own
+     * PID-0 task, so keying by PID would merge them. Idle time is therefore
+     * NOT tracked; it shows up in user space as
+     * (wall time x CPUs) - sum(active time). */
+    if (prev_pid != 0) {
+        u64 *tsp = start_ns.lookup(&prev_pid);
+        if (tsp != 0) {
+            u64 delta = ts - *tsp;
+            u64 zero = 0;
+            u64 *val = cpu_ns.lookup_or_init(&prev_pid, &zero);
+            if (val) {
+                /* atomic add: user space reads this map concurrently */
+                __sync_fetch_and_add(val, delta);
+            }
+            start_ns.delete(&prev_pid);
+        }
     }
 
-    /* Mark the incoming task as scheduled-in now. */
-    start_ns.update(&next_pid, &ts);
+    /* Mark the incoming task as scheduled-in now (skip the idle task). */
+    if (next_pid != 0) {
+        start_ns.update(&next_pid, &ts);
+    }
 
     return 0;
 }
